@@ -1,0 +1,42 @@
+name: CI Checks # Renamed workflow
+
+on:
+  push:
+    branches: [ master ] # Trigger on pushes to master
+  pull_request:
+    branches: [ master ] # Trigger on PRs targeting master
+
+jobs:
+  shellcheck: # Keep the linting job
+    name: Run ShellCheck
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Run ShellCheck
+      uses: ludeeus/action-shellcheck@2.0.0
+      with:
+        scandir: './scripts'
+      env:
+        SHELLCHECK_OPTS: -e SC2034 # Example: Ignore unused variable warnings if needed
+
+  bats_test: # New job for running tests
+    name: Run Bats Tests
+    needs: shellcheck # Optional: Run tests only if linting passes
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Bats
+      uses: bats-core/bats-action@2.0.0 # Action to install bats-core and helpers
+      # Installs bats, bats-support, bats-assert
+
+    - name: Ensure script is executable
+      run: chmod +x ./scripts/find-missing-casks.sh
+
+    - name: Run Bats tests
+      run: bats tests # Run all .bats files in the tests directory
