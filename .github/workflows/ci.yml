@@ -2,9 +2,9 @@ name: CI Checks # Renamed workflow
 
 on:
   push:
-    branches: [ master ] # Trigger on pushes to master
+    branches: [ main ] # Trigger on pushes to main
   pull_request:
-    branches: [ master ] # Trigger on PRs targeting master
+    branches: [ main ] # Trigger on PRs targeting main
 
 jobs:
   shellcheck: # Keep the linting job
