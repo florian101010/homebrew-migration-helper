@@ -111,7 +111,7 @@ elif echo "$filter" | grep -q '.casks\[]'; then # Adjusted grep pattern slightly
     echo "managed-cask\tManagedApp.app"
 elif [ "$filter" = "empty" ]; then
     # Simulate basic JSON validation - ALWAYS succeed for CI debugging
-    # echo "Mock jq: Simulating successful 'empty' check for $file" >&2
+    echo "Mock jq: Simulating successful 'empty' check for $file" >&2
     exit 0
 else
     # For any other filter, just exit successfully to avoid breaking tests
@@ -122,10 +122,11 @@ exit 0 # Ensure successful exit if any filter matched
 EOF
   chmod +x "$MOCK_BIN_DIR/jq"
 
-  # Mock 'curl' (to output mock cache file content)
+  # Mock 'curl' (Added Debugging)
   cat > "$MOCK_BIN_DIR/curl" <<'EOF'
 #!/bin/sh
 # Use TEST_DIR exported from setup
+echo "Mock curl: Called with arguments: $*" >&2
 # Find the output file path specified by -o
 output_file=""
 while [ $# -gt 0 ]; do
@@ -138,9 +139,18 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -n "$output_file" ]; then
+  mock_data_source="$TEST_DIR/mock_data/mock_api_cache.json"
+  echo "Mock curl: Attempting to write '$mock_data_source' to '$output_file'" >&2
   # Output mock API data to the specified file
-  cat "$TEST_DIR/mock_data/mock_api_cache.json" > "$output_file"
-  exit 0
+  cat "$mock_data_source" > "$output_file"
+  cat_exit_code=$?
+  if [ $cat_exit_code -eq 0 ]; then
+      echo "Mock curl: Successfully wrote mock data to '$output_file'" >&2
+      exit 0
+  else
+      echo "Mock curl: Error writing mock data (cat exited with $cat_exit_code)" >&2
+      exit 1 # Exit with error if cat failed
+  fi
 else
   echo "Mock curl: Missing -o argument" >&2
   exit 1
