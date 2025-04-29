@@ -444,13 +444,15 @@ for app_path in "${found_app_paths[@]}"; do
 
     # 4d. Report if found in API data
     if [[ -n "$actual_cask_token" ]]; then
-        # Format the output line with colors and command, store in array
+        # Format the output line with colors, emojis, and command, store in array
         local app_name_display="${app_filename%.app}" # Remove .app suffix
         local line=""
-        line+="${COLOR_APP_NAME}${app_name_display}${COLOR_RESET}\n"
-        line+="  ${COLOR_DIM}Cask:${COLOR_RESET}     ${COLOR_CASK_TOKEN}${actual_cask_token}${COLOR_RESET}\n"
-        line+="  ${COLOR_DIM}Homepage:${COLOR_RESET} ${COLOR_HOMEPAGE}${homepage}${COLOR_RESET}\n"
-        line+="  ${COLOR_DIM}Install:${COLOR_RESET}  ${COLOR_COMMAND}brew install --cask ${actual_cask_token}${COLOR_RESET}\n"
+        # App Name Header
+        line+="${COLOR_BOLD}${COLOR_APP_NAME}${app_name_display}${COLOR_RESET}\n"
+        # Details (indented, consistent spacing)
+        line+="  📦 ${COLOR_DIM}Cask:${COLOR_RESET}      ${COLOR_CASK_TOKEN}${actual_cask_token}${COLOR_RESET}\n"
+        line+="  🔗 ${COLOR_DIM}Homepage:${COLOR_RESET}  ${COLOR_HOMEPAGE}${homepage}${COLOR_RESET}\n"
+        line+="  ▶️  ${COLOR_DIM}Install:${COLOR_RESET}   ${COLOR_COMMAND}brew install --cask ${actual_cask_token}${COLOR_RESET}\n\n" # Add TWO newlines here for separation
         report_lines+=("$line")
         # Store details for interactive mode if needed
         if [[ "$INTERACTIVE" == "true" ]]; then
@@ -476,33 +478,40 @@ if [[ ${#report_lines[@]} -eq 0 ]]; then
 else
     # Print header unless in quiet mode
     if [[ "$QUIET" == "false" ]]; then
-        echo "${COLOR_HEADER}🔎 Apps installable via Homebrew Cask but not currently managed:${COLOR_RESET}"
-        echo "${COLOR_DIM}(Verified against Homebrew API data)${COLOR_RESET}"
-        echo "${COLOR_HEADER}-------------------------------------------------------------${COLOR_RESET}"
+        echo "\n${COLOR_HEADER}🔎 Found Manually Installed Apps with Available Homebrew Casks:${COLOR_RESET}"
+        echo "${COLOR_DIM}   (Apps listed below are not currently managed by Homebrew Cask)${COLOR_RESET}" # Simplified subtitle
+        echo "${COLOR_HEADER}===================================================================${COLOR_RESET}"
     fi
 
     # Sort the report lines alphabetically (case-insensitive using 'on')
     sorted_report_lines=("${(on)report_lines}")
 
-    # Print each sorted line
+    # Print each sorted line (which now includes its own trailing newlines for separation)
     for line in "${sorted_report_lines[@]}"; do
-        print -- "$line" # Use print (without -r) to interpret escape codes correctly
+        print -n -- "$line" # Use print -n to print exactly what's in $line without adding an extra newline
     done
 
     # Print footer unless in quiet mode
     if [[ "$QUIET" == "false" ]]; then
-        echo "${COLOR_HEADER}-------------------------------------------------------------${COLOR_RESET}"
-        echo "${COLOR_DIM}Note: Review the homepage URL to confirm the cask matches your app before installing.${COLOR_RESET}"
+        echo "${COLOR_HEADER}===================================================================${COLOR_RESET}"
+        echo "💡 ${COLOR_BOLD}Next Steps:${COLOR_RESET}"
+        echo "   1. ${COLOR_DIM}Verify:${COLOR_RESET} Check the 🔗 Homepage for each app to ensure the cask is correct."
+        echo "   2. ${COLOR_DIM}Decide:${COLOR_RESET} Choose whether to migrate the app to Homebrew management."
+        echo "   3. ${COLOR_DIM}Migrate (Optional):${COLOR_RESET} If migrating, uninstall the manual version first,"
+        echo "      then run the ▶️  Install command provided (e.g., ${COLOR_COMMAND}brew install --cask ...${COLOR_RESET})."
+        echo "   (Use the ${COLOR_BOLD}-i${COLOR_RESET} flag for interactive installation prompts)."
+
     fi
 fi
 
-# Add Summary Count if not in quiet mode
-log_info "\n${COLOR_BOLD}Summary: Found ${#report_lines[@]} potential cask migration(s).${COLOR_RESET}"
+# Add Summary Count (always printed to stderr unless quiet)
+log_info "\n${COLOR_HEADER}📊 Summary${COLOR_RESET}"
+log_info "${COLOR_BOLD}   Found ${#report_lines[@]} potential cask migration(s).${COLOR_RESET}"
 if [[ "$VERBOSE" == "true" ]]; then
     # Ensure counts are printed even if 0, for clarity in verbose mode
-    log_info "${COLOR_DIM}  (${skipped_managed_count:-0} skipped as already managed by brew)"
-    log_info "  (${skipped_processed_count:-0} skipped as duplicate app name)"
-    log_info "  (${skipped_no_cask_count:-0} skipped as no verified cask found in API data)${COLOR_RESET}"
+    log_info "${COLOR_DIM}   (${skipped_managed_count:-0} apps skipped as already managed by brew)"
+    log_info "${COLOR_DIM}   (${skipped_processed_count:-0} apps skipped as duplicate name in scanned dirs)"
+    log_info "${COLOR_DIM}   (${skipped_no_cask_count:-0} apps skipped as no verified cask found in API data)${COLOR_RESET}"
 fi
 
 # --- Interactive Installation ---
