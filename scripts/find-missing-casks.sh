@@ -353,6 +353,7 @@ while IFS=$'\t' read -r cask_token app_path_raw; do
       fi
   fi
 # Sanitize brew output using perl to remove problematic control characters before piping to jq
+# Sanitize brew output using perl to remove problematic control characters before piping to jq
 done < <(printf "%s" "$brew_info_output" | perl -pe 's/[\x00-\x08\x0B\x0C\x0E-\x1F]//g' | jq -r '
   .casks[]? # Iterate safely over casks
   | .token? as $token # Safely get token
