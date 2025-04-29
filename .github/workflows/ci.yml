@@ -43,9 +43,8 @@ jobs:
     - name: Verify brew installation
       run: brew --version
 
-    - name: Set up Bats
-      uses: bats-core/bats-action@2.0.0 # Action to install bats-core and helpers
-      # Installs bats, bats-support, bats-assert
+    - name: Install bats-core via Homebrew
+      run: brew install bats-core
 
     - name: Ensure script is executable
       run: chmod +x ./scripts/find-missing-casks.sh
