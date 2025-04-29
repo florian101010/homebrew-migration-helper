@@ -1,0 +1,23 @@
+name: Lint Shell Script
+
+on:
+  push:
+    branches: [ master ] # Trigger on pushes to master
+  pull_request:
+    branches: [ master ] # Trigger on PRs targeting master
+
+jobs:
+  shellcheck:
+    name: Run ShellCheck
+    runs-on: ubuntu-latest # Use a standard Linux runner
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4 # Action to get the repository code
+
+    - name: Run ShellCheck
+      uses: ludeeus/action-shellcheck@2.0.0 # Use a popular action for ShellCheck
+      with:
+        scandir: './scripts' # Specify the directory containing the script(s)
+      env:
+        SHELLCHECK_OPTS: -e SC2034 # Example: Ignore unused variable warnings if needed
