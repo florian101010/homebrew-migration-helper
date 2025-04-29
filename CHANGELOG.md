@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI workflow for linting (`shellcheck`) and basic testing (`bats-core`).
 - Initial automated tests (`tests/basic.bats`).
 - Issue and Pull Request templates (`.github/`).
+-   Display local application version alongside Homebrew Cask version in the output.
+    -   Reads local version from `Info.plist` (`CFBundleShortVersionString` or `CFBundleVersion`).
+    -   Reads cask version from Homebrew API data.
+    -   Highlights version differences in the output.
+-   Added `docs/TESTING_GUIDE.md` explaining the mock environment in `tests/basic.bats`.
 
 ### Changed
 

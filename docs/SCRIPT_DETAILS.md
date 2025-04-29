@@ -31,6 +31,7 @@ The script defines several variables, some with defaults that can be overridden 
     *   `INTERACTIVE`: Boolean, set by `-i`.
 *   **Colors:** Defines ANSI color codes for terminal output, disabled if stdout is not a terminal.
 *   **Logging Function (`log_info`):** Prints messages to stderr unless `QUIET` is true.
+*   **Version Function (`get_local_app_version`):** Reads the `CFBundleShortVersionString` or `CFBundleVersion` from an application's `Info.plist` file using the `defaults` command. Returns the version string or "N/A (...)" if the plist or version key is not found.
 
 ## 🛠️ Argument Parsing (`getopts`)
 
@@ -134,10 +135,11 @@ Core logic comparing found apps against installed casks and API data.
     *   If matched:
         *   Retrieves the value (`details_string`).
         *   Splits by tab into `details_array` (`"${(@s:\t:)details_string}"`).
-        *   Safely extracts `actual_cask_token=${details_array[1]:-}` and `homepage=${details_array[2]:-}` (using `:-` default for safety with `set -u`).
+        *   Safely extracts `actual_cask_token=${details_array[1]:-}`, `homepage=${details_array[2]:-}`, and `cask_version=${details_array[3]:-}` (using `:-` default for safety with `set -u`).
         *   If `actual_cask_token` is non-empty, `break`s the inner loop.
 6.  **Reporting:** If `actual_cask_token` was found:
-    *   Formats the output lines (app name, cask, homepage, install command) with colors.
+    *   Calls `get_local_app_version "$app_path"` to retrieve the version from the local app's `Info.plist`.
+    *   Formats the output lines (app name, path, cask token, local vs. cask version, homepage, install command) with colors.
     *   Appends the formatted block to `report_lines`.
     *   If `INTERACTIVE` is true, adds `app_name_display\tactual_cask_token` to `apps_to_install_interactively`.
 7.  **No Cask Found:** If no `actual_cask_token` was found, increments `skipped_no_cask_count` using `$((...))`.

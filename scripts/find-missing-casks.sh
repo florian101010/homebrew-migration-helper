@@ -58,6 +58,47 @@ log_info() {
     }
 # --- End Logging Function ---
 
+# --- Function to get local app version ---
+# Takes app path as argument, outputs version string or "N/A (...)" to stdout
+# Returns 0 on success, 1 on failure (plist not found, version key missing)
+get_local_app_version() {
+    local app_path="$1"
+    local plist_path="$app_path/Contents/Info.plist"
+    local version=""
+
+    if [[ ! -f "$plist_path" ]]; then
+        # Error message goes to stderr for logging, N/A goes to stdout for capture
+        if [[ "$VERBOSE" == "true" ]]; then log_info "    ${COLOR_DIM}- Could not find Info.plist for $app_path${COLOR_RESET}"; fi
+        echo "N/A (No Info.plist)"
+        return # Let it return 0 implicitly
+    fi
+
+    # Try CFBundleShortVersionString first, then CFBundleVersion
+    # Redirect stderr to /dev/null to suppress "does not exist" errors from defaults
+    # Temporarily disable exit on error for defaults command
+    set +e
+    version=$(defaults read "$plist_path" CFBundleShortVersionString 2>/dev/null)
+    # Re-enable exit on error immediately after
+    set -e
+    if [[ -z "$version" ]]; then
+        # Temporarily disable exit on error for defaults command
+        set +e
+        version=$(defaults read "$plist_path" CFBundleVersion 2>/dev/null)
+        # Re-enable exit on error immediately after
+        set -e
+    fi
+
+    if [[ -n "$version" ]]; then
+        echo "$version" # Output version to stdout
+        return 0
+    else
+        if [[ "$VERBOSE" == "true" ]]; then log_info "    ${COLOR_DIM}- Could not read version from Info.plist for $app_path${COLOR_RESET}"; fi
+        echo "N/A (Version key missing)"
+        return # Let it return 0 implicitly
+    fi
+}
+# --- End Function to get local app version ---
+
 # --- Usage Function ---
 usage() {
   local exit_code=${1:-0} # Default exit code 0 if no argument provided
@@ -331,22 +372,22 @@ if [[ "$VERBOSE" == "true" ]]; then
     log_info "${COLOR_DIM}Identified $installed_cask_count managed application paths from installed casks.${COLOR_RESET}"
 fi
 
-# 2. Create Lookup Map from API Data: App Filename -> "Token\tHomepage"
+# 2. Create Lookup Map from API Data: App Filename -> "Token\tHomepage\tVersion"
 log_info "⚙️  ${COLOR_DIM}Processing API data into lookup map...${COLOR_RESET}"
-typeset -A api_app_details_map # Map: App Filename -> "Token\tHomepage"
-while IFS=$'\t' read -r token app_name homepage; do # Read homepage too
+typeset -A api_app_details_map # Map: App Filename -> "Token\tHomepage\tVersion"
+while IFS=$'\t' read -r token app_name homepage version; do # Read homepage and version too
     trimmed_app_name=${app_name## ##}; trimmed_app_name=${trimmed_app_name%% ##}
     unquoted_app_name=${trimmed_app_name#\"}; unquoted_app_name=${unquoted_app_name%\"}
     if [[ -n "$unquoted_app_name" ]]; then
-        # Store token and homepage, tab-separated
-        api_app_details_map["$unquoted_app_name"]="$token\t$homepage"
+        # Store token, homepage, and version, tab-separated
+        api_app_details_map["$unquoted_app_name"]="$token\t$homepage\t$version"
     fi
  done < <(jq -r '
-    # --- JQ Query: Extract App Filename, Token, Homepage from API Data ---
+    # --- JQ Query: Extract App Filename, Token, Homepage, Version from API Data ---
     # Iterate through each cask object in the top-level array
     .[] |
-    # Store token and homepage for later use
-    .token as $token | .homepage as $hp |
+    # Store token, homepage, and version for later use
+    .token as $token | .homepage as $hp | .version as $version |
     # Iterate through artifacts, suppressing errors if `artifacts` array is missing
     .artifacts[]? as $artifact |
     # Try to extract the app path string from different known artifact structures:
@@ -366,9 +407,9 @@ while IFS=$'\t' read -r token app_name homepage; do # Read homepage too
     (split("/") | .[-1]) as $app_filename |
     # Ensure the extracted filename is not empty (handles edge cases)
     select($app_filename) |
-    # Output: token, app_filename, homepage (tab-separated) for shell processing
-    $token + "\t" + $app_filename + "\t" + $hp
-' "$CACHE_FILE")
+    # Output: token, app_filename, homepage, version (tab-separated) for shell processing
+    $token + "\t" + $app_filename + "\t" + $hp + "\t" + $version
+ ' "$CACHE_FILE")
 log_info "🗺️  ${COLOR_DIM}API map created with ${#api_app_details_map} entries.${COLOR_RESET}"
 
 
@@ -432,18 +473,20 @@ for app_path in "${found_app_paths[@]}"; do
     # 4c. Look up the app filename in the API map using explicit iteration
     actual_cask_token=""
     homepage=""
+    cask_version="" # Initialize cask version
     for key in "${(@k)api_app_details_map}"; do
         # Remove potential surrounding quotes from the key before comparing
         unquoted_key=${key#\"}
         unquoted_key=${unquoted_key%\"}
 
         if [[ "$app_filename" == "$unquoted_key" ]]; then
-            # Extract token and homepage from map value using zsh parameter expansion
+            # Extract token, homepage, and version from map value using zsh parameter expansion
             local details_string="${api_app_details_map[$key]}"
             local details_array=("${(@s:\t:)details_string}") # Split by tab
             # Safely access array elements, providing empty defaults if they don't exist
             actual_cask_token=${details_array[1]:-} # Default to empty if index 1 is unset
             homepage=${details_array[2]:-}          # Default to empty if index 2 is unset
+            cask_version=${details_array[3]:-}       # Default to empty if index 3 is unset
             # Ensure we actually got a token before breaking
             if [[ -n "$actual_cask_token" ]]; then
                 break # Found a match with a token
@@ -453,13 +496,27 @@ for app_path in "${found_app_paths[@]}"; do
 
     # 4d. Report if found in API data
     if [[ -n "$actual_cask_token" ]]; then
+        # Get local app version
+        local local_version=$(get_local_app_version "$app_path")
+        local version_comparison_color=$COLOR_DIM # Default color for versions
+
+        # Basic version comparison (adjust color if different)
+        # Note: This is a simple string comparison, not semantic versioning.
+        # 'latest' is treated specially.
+        if [[ -n "$local_version" && "$local_version" != "N/A"* && -n "$cask_version" && "$cask_version" != "latest" && "$local_version" != "$cask_version" ]]; then
+             version_comparison_color=$COLOR_BOLD # Highlight if versions differ (and aren't N/A or latest)
+        fi
+
         # Format the output line with colors, emojis, and command, store in array
         local app_name_display="${app_filename%.app}" # Remove .app suffix
         local line=""
         # App Name Header
         line+="${COLOR_BOLD}${COLOR_APP_NAME}${app_name_display}${COLOR_RESET}\n"
         # Details (indented, consistent spacing)
-        line+="  📦 ${COLOR_DIM}Cask:${COLOR_RESET}      ${COLOR_CASK_TOKEN}${actual_cask_token}${COLOR_RESET}\n"
+        line+="  📍 ${COLOR_DIM}Path:${COLOR_RESET}      ${COLOR_DIM}${app_path}${COLOR_RESET}\n" # Add path for clarity
+        line+="  � ${COLOR_DIM}Cask:${COLOR_RESET}      ${COLOR_CASK_TOKEN}${actual_cask_token}${COLOR_RESET}\n"
+        # Display versions side-by-side
+        line+="  🏷️  ${COLOR_DIM}Version:${COLOR_RESET}   ${version_comparison_color}Local: ${local_version:-N/A} | Cask: ${cask_version:-N/A}${COLOR_RESET}\n"
         line+="  🔗 ${COLOR_DIM}Homepage:${COLOR_RESET}  ${COLOR_HOMEPAGE}${homepage}${COLOR_RESET}\n"
         line+="  ▶️  ${COLOR_DIM}Install:${COLOR_RESET}   ${COLOR_COMMAND}brew install --cask ${actual_cask_token}${COLOR_RESET}\n\n" # Add TWO newlines here for separation
         report_lines+=("$line")

@@ -80,12 +80,16 @@ The script scans the specified application folders and compares found apps again
 Output format for each found app:
 ```
 ApplicationName
-  Cask:     cask-token
-  Homepage: https://developer.example.com/
-  Install:  brew install --cask cask-token
+  📍 Path:      /Applications/ApplicationName.app
+  📦 Cask:      cask-token
+  🏷️  Version:   Local: 1.2.3 | Cask: 1.2.4
+  🔗 Homepage:  https://developer.example.com/
+  ▶️  Install:   brew install --cask cask-token
 ```
 *   **ApplicationName:** The display name of the app (e.g., `Visual Studio Code`).
+*   **Path:** The full path to the manually installed `.app` bundle found.
 *   **Cask:** The official Homebrew Cask token (e.g., `visual-studio-code`).
+*   **Version:** Shows the version read from the local app's `Info.plist` (`Local:`) compared to the version listed in the Homebrew Cask (`Cask:`). Versions that differ are highlighted (unless one is N/A or the cask version is 'latest').
 *   **Homepage:** The official homepage URL for verification.
 *   **Install:** The command to install the cask via Homebrew.
 

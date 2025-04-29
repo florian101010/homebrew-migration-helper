@@ -15,6 +15,7 @@ Thank you for considering contributing to the Homebrew Migration Helper!
 4.  **Make your changes:** Implement your fix or feature.
 5.  **Test your changes:**
     *   Run the automated tests: `bats tests` (You might need to install bats-core: `brew install bats-core`).
+    *   Note: The `tests/basic.bats` file sets up a mock environment (mock commands, fake apps, mock data) in its `setup()` function to test the script's logic without relying on external dependencies or actual installed applications. See **[Testing Guide (`docs/TESTING_GUIDE.md`)](./docs/TESTING_GUIDE.md)** for details on how this works and how to update it if necessary.
     *   Add new tests for your changes if applicable. Ensure all tests pass.
 6.  **Commit your changes:** Commit your changes using a descriptive commit message. Follow conventional commit message formats if possible (e.g., `feat: Add -o option for output file`).
     ```bash
