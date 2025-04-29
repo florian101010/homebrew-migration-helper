@@ -1,4 +1,4 @@
-# Troubleshooting `find-missing-casks.sh`
+# Troubleshooting `scripts/find-missing-casks.sh`
 
 This guide helps resolve common issues you might encounter when using the script.
 
@@ -11,14 +11,14 @@ This guide helps resolve common issues you might encounter when using the script
     ```
     Then, try running the script again.
 
-## 🚫 Error: `Permission denied` when running `./find-missing-casks.sh`
+## 🚫 Error: `Permission denied` when running `./scripts/find-missing-casks.sh`
 
 *   **Problem:** The script file does not have execute permissions.
 *   **Solution:** Grant execute permissions using the `chmod` command:
     ```bash
-    chmod +x find-missing-casks.sh
+    chmod +x scripts/find-missing-casks.sh
     ```
-    Then, run the script using `./find-missing-casks.sh`.
+    Then, run the script using `./scripts/find-missing-casks.sh`.
 
 ## 🌐 Error: `Failed to download API data from ...` / `Downloaded API data is not valid JSON`
 

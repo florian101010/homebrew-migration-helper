@@ -1,4 +1,4 @@
-# 🍺 Homebrew Migration Helper (`find-missing-casks.sh`)
+# 🍺 Homebrew Migration Helper (`scripts/find-missing-casks.sh`)
 
 A handy script to identify manually installed macOS applications that have an official Homebrew Cask available. Simplify your app management!
 
@@ -13,7 +13,7 @@ Essentially, it helps you find apps you might have installed manually that could
 
 ## 🚀 Getting Started
 
-Follow these steps to use the `find-missing-casks.sh` script:
+Follow these steps to use the `scripts/find-missing-casks.sh` script:
 
 ### 🛠️ Prerequisites
 
@@ -25,7 +25,7 @@ Follow these steps to use the `find-missing-casks.sh` script:
 
 ### ▶️ Running the Script
 
-1.  **Clone/Download:** Get the script by cloning this repository or downloading `find-missing-casks.sh`.
+1.  **Clone/Download:** Get the script by cloning this repository or downloading `scripts/find-missing-casks.sh`.
     ```bash
     # Example using git clone
     git clone https://github.com/florian101010/homebrew-migration-helper.git
@@ -33,11 +33,11 @@ Follow these steps to use the `find-missing-casks.sh` script:
     ```
 2.  **Make Executable:** Grant execution permissions:
     ```bash
-    chmod +x find-missing-casks.sh
+    chmod +x scripts/find-missing-casks.sh
     ```
 3.  **Execute:** Run the script from your terminal:
     ```bash
-    ./find-missing-casks.sh
+    ./scripts/find-missing-casks.sh
     ```
 
 ### 📊 Understanding the Output
@@ -78,4 +78,11 @@ Output format:
 
 ## 🔧 Configuration
 
-*   **Scan Directories:** Modify the `APP_DIRS` variable near the top of the `find-missing-casks.sh` script to include additional directories in the scan.
+*   **Scan Directories:** Modify the `APP_DIRS` variable near the top of the `scripts/find-missing-casks.sh` script to include additional directories in the scan.
+
+## 📚 Detailed Documentation
+
+For more in-depth information, please refer to the documents in the `docs` folder:
+
+*   **[Script Internals (`SCRIPT_DETAILS.md`)](./docs/SCRIPT_DETAILS.md):** A deep dive into how the script works, including API handling, caching, and path resolution.
+*   **[Troubleshooting Guide (`TROUBLESHOOTING.md`)](./docs/TROUBLESHOOTING.md):** Solutions for common errors and issues you might encounter.

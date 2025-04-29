@@ -1,6 +1,6 @@
-# Script Internals: `find-missing-casks.sh`
+# Script Internals: `scripts/find-missing-casks.sh`
 
-This document provides a deeper dive into the internal workings of the `find-missing-casks.sh` script.
+This document provides a deeper dive into the internal workings of the `scripts/find-missing-casks.sh` script.
 
 ## ⚙️ Configuration Variables
 
