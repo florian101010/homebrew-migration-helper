@@ -40,4 +40,6 @@ If you modify the main script (`scripts/find-missing-casks.sh`) in a way that ch
     *   Add assertions in a test case to verify the new logic works as expected based on the mock setup.
 
 Remember to keep the mocks and test data consistent with the logic you are testing.
-**Note on `jq` Mock:** The mock `jq` script currently forces the `empty` filter (used for JSON validation) to always succeed (`exit 0`). This was implemented as a workaround for CI environment inconsistencies where file checks within the mock were unreliable. While this ensures tests pass in CI, be aware that it bypasses actual JSON validation in the test environment.
+**Notes on `jq` Mock:**
+*   The mock `jq` script uses a POSIX-compliant method (`for last; do :; done; file="$last"`) to retrieve the last command-line argument (the input file). This replaced a previous Zsh/Bash-specific syntax (`file="${@: -1}"`) that caused "Bad substitution" errors when run under `dash` (often the default `/bin/sh` on Linux CI runners).
+*   The mock `jq` script currently forces the `empty` filter (used for JSON validation) to always succeed (`exit 0`). This was implemented as a workaround for CI environment inconsistencies where file checks within the mock were unreliable. While this ensures tests pass in CI, be aware that it bypasses actual JSON validation in the test environment.
