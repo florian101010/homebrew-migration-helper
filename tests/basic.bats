@@ -41,6 +41,17 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "Script exits with error and shows usage on invalid option" {
+  # Run the script with an invalid option (-x)
+  run zsh ../scripts/find-missing-casks.sh -x
+  # Assert that the exit status is 1 (error)
+  [ "$status" -eq 1 ]
+  # Assert that stderr (captured in $output when status is non-zero) contains the error message
+  [[ "$output" == *"Invalid Option: -x"* ]]
+  # Assert that stderr also contains the usage information
+  [[ "$output" == *"Usage: find-missing-casks.sh"* ]]
+}
+
 # Add more tests here...
 # Example: Test default run (might require mocking brew/curl/jq)
 # @test "Script runs with default options without error (requires mocks)" {
