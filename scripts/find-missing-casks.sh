@@ -16,7 +16,46 @@ CACHE_DIR=""
 CACHE_FILE=""
 CACHE_TTL_SECONDS=0
 FORCE_FETCH=false
+VERBOSE=false
+QUIET=false
+INTERACTIVE=false
 # --- End Script Variables ---
+
+# --- Colors ---
+# Check if stdout is a terminal and supports colors
+if [[ -t 1 ]]; then
+    COLOR_RESET="\e[0m"
+    COLOR_BOLD="\e[1m"
+    COLOR_DIM="\e[2m"
+    COLOR_APP_NAME="\e[1;36m" # Bold Cyan
+    COLOR_CASK_TOKEN="\e[0;33m" # Yellow
+    COLOR_HOMEPAGE="\e[2;37m" # Dim White/Gray
+    COLOR_COMMAND="\e[0;32m" # Green
+    COLOR_HEADER="\e[1;37m" # Bold White
+    COLOR_PROMPT="\e[1;37m" # Bold White for prompts
+    COLOR_ERROR="\e[1;31m" # Bold Red
+else
+    COLOR_RESET=""
+    COLOR_BOLD=""
+    COLOR_DIM=""
+    COLOR_APP_NAME=""
+    COLOR_CASK_TOKEN=""
+    COLOR_HOMEPAGE=""
+    COLOR_COMMAND=""
+    COLOR_HEADER=""
+    COLOR_PROMPT=""
+    COLOR_ERROR=""
+fi
+# --- End Colors ---
+
+# --- Logging Function ---
+# Prints informational messages to stderr, suppressed if QUIET is true
+log_info() {
+    if [[ "$QUIET" == "false" ]]; then
+        echo "$@" >&2
+    fi
+}
+# --- End Logging Function ---
 
 # --- Usage Function ---
 usage() {
@@ -28,7 +67,7 @@ usage() {
   fi
 
   cat >&$output_stream << EOF
-Usage: $(basename "$0") [-d <dir>] [-c <cache_dir>] [-t <ttl_seconds>] [-f] [-h]
+Usage: $(basename "$0") [-d <dir>] [-c <cache_dir>] [-t <ttl_seconds>] [-f] [-v] [-q] [-i] [-h]
 
 Scans specified directories for manually installed macOS applications (.app)
 that have a corresponding verified Homebrew Cask available.
@@ -41,13 +80,17 @@ Options:
   -t <ttl_seconds> Set the cache Time-To-Live in seconds.
                    (Default: 86400 seconds = 24 hours)
   -f               Force fetch new API data, ignoring existing cache TTL.
+  -v               Verbose mode: Print more detailed execution information and skipped apps.
+  -q               Quiet mode: Suppress informational messages (stderr), only show final list or errors.
+  -i               Interactive mode: Prompt before suggesting installation for each found app.
   -h               Display this help message and exit successfully.
 EOF
   exit "$exit_code"
 }
 
 # --- Argument Parsing ---
-while getopts ":hd:c:t:f" opt; do
+# Note: -v, -q, -i are simple flags; others require arguments (indicated by ':')
+while getopts ":hd:c:t:fvqi" opt; do
   case ${opt} in
     h )
       usage
@@ -55,9 +98,11 @@ while getopts ":hd:c:t:f" opt; do
     d )
       # Check if directory exists and is readable
       if [[ -d "$OPTARG" && -r "$OPTARG" ]]; then
-        APP_DIRS+=("$OPTARG")
+        # Resolve to absolute path to handle relative inputs consistently
+        abs_dir=$(cd "$OPTARG"; pwd)
+        APP_DIRS+=("$abs_dir")
       else
-        echo "Warning: Directory '$OPTARG' specified with -d does not exist or is not readable. Skipping." >&2
+        echo "${COLOR_ERROR}Warning:${COLOR_RESET} Directory '$OPTARG' specified with -d does not exist or is not readable. Skipping." >&2
       fi
       ;;
     c )
@@ -67,19 +112,28 @@ while getopts ":hd:c:t:f" opt; do
       if [[ "$OPTARG" =~ ^[0-9]+$ ]]; then
         CACHE_TTL_SECONDS=$OPTARG
       else
-        echo "Error: Invalid TTL specified with -t. Must be a non-negative integer." >&2
+        echo "${COLOR_ERROR}Error:${COLOR_RESET} Invalid TTL specified with -t. Must be a non-negative integer." >&2
         exit 1
       fi
       ;;
     f )
       FORCE_FETCH=true
       ;;
+    v )
+      VERBOSE=true
+      ;;
+    q )
+      QUIET=true
+      ;;
+    i )
+      INTERACTIVE=true
+      ;;
     \? )
-      echo "Invalid Option: -$OPTARG" 1>&2
+      echo "${COLOR_ERROR}Invalid Option:${COLOR_RESET} -$OPTARG" 1>&2
       usage 1 # Exit with code 1 for invalid option
       ;;
     : )
-      echo "Invalid Option: -$OPTARG requires an argument" 1>&2
+      echo "${COLOR_ERROR}Invalid Option:${COLOR_RESET} -$OPTARG requires an argument" 1>&2
       usage 1 # Exit with code 1 for missing argument
       ;;
   esac
@@ -90,6 +144,9 @@ shift $((OPTIND -1))
 if [[ ${#APP_DIRS[@]} -eq 0 ]]; then
   APP_DIRS=("${DEFAULT_APP_DIRS[@]}")
 fi
+# Ensure unique directories
+typeset -U APP_DIRS # Zsh specific: Keep only unique elements
+
 if [[ -z "$CACHE_DIR" ]]; then
   CACHE_DIR="$DEFAULT_CACHE_DIR"
 fi
@@ -100,16 +157,27 @@ if [[ $CACHE_TTL_SECONDS -eq 0 ]]; then
   CACHE_TTL_SECONDS=$DEFAULT_CACHE_TTL_SECONDS
 fi
 
+# Quiet mode implies non-interactive
+if [[ "$QUIET" == "true" ]]; then
+    INTERACTIVE=false
+    VERBOSE=false # Quiet overrides verbose
+fi
+
 # --- Dependency Checks ---
 # Check dependencies (moved after arg parsing in case paths change, though unlikely for jq/curl)
 if ! command -v jq &> /dev/null; then
-  echo "Error: jq is required but not installed. Please install it (e.g., 'brew install jq')." >&2
+  echo "${COLOR_ERROR}Error:${COLOR_RESET} jq is required but not installed. Please install it (e.g., 'brew install jq')." >&2
   exit 1
 fi
 if ! command -v curl &> /dev/null; then
-  echo "Error: curl is required but not installed. Please install it (e.g., 'brew install curl')." >&2
+  echo "${COLOR_ERROR}Error:${COLOR_RESET} curl is required but not installed. Please install it (e.g., 'brew install curl')." >&2
   exit 1
 fi
+if ! command -v brew &> /dev/null; then
+    echo "${COLOR_ERROR}Error:${COLOR_RESET} brew command not found. Please ensure Homebrew is installed correctly." >&2
+    exit 1
+fi
+
 
 # --- Function to get API data (with caching) ---
 get_api_data() {
@@ -119,7 +187,7 @@ get_api_data() {
   local file_mod_time=0
 
   if [[ "$FORCE_FETCH" == "true" ]]; then
-      echo "Forcing API data fetch due to -f flag..." >&2
+      log_info "${COLOR_DIM}Forcing API data fetch due to -f flag...${COLOR_RESET}"
   fi
 
   if [[ "$needs_fetch" == "false" ]]; then # Only check cache if not forcing fetch
@@ -127,36 +195,46 @@ get_api_data() {
           file_mod_time=$(stat -f %m "$CACHE_FILE") # macOS stat syntax
           if (( current_time - file_mod_time > CACHE_TTL_SECONDS )); then
               needs_fetch=true
-              echo "Cache expired (> $CACHE_TTL_SECONDS seconds old), fetching fresh API data from $API_URL ..." >&2
+              log_info "${COLOR_DIM}Cache expired (> $CACHE_TTL_SECONDS seconds old), fetching fresh API data from $API_URL ...${COLOR_RESET}"
           else
-              echo "Using cached API data (less than $CACHE_TTL_SECONDS seconds old)..." >&2
+              log_info "${COLOR_DIM}Using cached API data (less than $CACHE_TTL_SECONDS seconds old)...${COLOR_RESET}"
           fi
       else
           needs_fetch=true
-          echo "No cache file found. Fetching API data from $API_URL ..." >&2
+          log_info "${COLOR_DIM}No cache file found. Fetching API data from $API_URL ...${COLOR_RESET}"
       fi
   fi
 
   if "$needs_fetch"; then
+    log_info "${COLOR_DIM}Fetching API data from $API_URL ...${COLOR_RESET}" # Moved here to avoid duplicate message
     local temp_file=$(mktemp "$CACHE_DIR/cask_api_data.json.XXXXXX")
+    # Use -f (--fail) to make curl exit non-zero on server errors (4xx, 5xx)
     if ! curl --fail --silent --location "$API_URL" -o "$temp_file"; then
-        echo "Error: Failed to download API data from $API_URL" >&2
+        # Error messages should always go to stderr, regardless of quiet mode
+        echo "${COLOR_ERROR}Error:${COLOR_RESET} Failed to download API data from $API_URL" >&2
         rm -f "$temp_file"
-        if [[ -f "$CACHE_FILE" ]]; then echo "Error occurred during update. Exiting." >&2; fi
+        # Provide context if falling back is impossible
+        if [[ ! -f "$CACHE_FILE" ]]; then echo "${COLOR_ERROR}Error:${COLOR_RESET} No existing cache file to fall back on." >&2; fi
         exit 1
     else
         if jq empty "$temp_file" > /dev/null 2>&1; then
             mv "$temp_file" "$CACHE_FILE"
-            echo "API data updated successfully." >&2
+            log_info "${COLOR_DIM}API data updated successfully.${COLOR_RESET}"
         else
-            echo "Error: Downloaded API data is not valid JSON. Discarding." >&2
+            echo "${COLOR_ERROR}Error:${COLOR_RESET} Downloaded API data is not valid JSON. Discarding." >&2
             rm -f "$temp_file"
-            if [[ ! -f "$CACHE_FILE" ]]; then exit 1; fi
+            if [[ ! -f "$CACHE_FILE" ]]; then
+                 echo "${COLOR_ERROR}Error:${COLOR_RESET} No existing cache file to fall back on after invalid download." >&2
+                 exit 1
+            else
+                 log_info "${COLOR_DIM}Warning: Failed to update cache with invalid JSON. Using previous cache.${COLOR_RESET}"
+            fi
         fi
     fi
   fi
+  # Final check for valid cache file remains critical
   if [[ ! -f "$CACHE_FILE" ]] || ! jq empty "$CACHE_FILE" > /dev/null 2>&1; then
-      echo "Error: Cannot proceed without valid API data cache ($CACHE_FILE)." >&2
+      echo "${COLOR_ERROR}Error:${COLOR_RESET} Cannot proceed without valid API data cache ($CACHE_FILE)." >&2
       exit 1
   fi
 }
@@ -167,8 +245,26 @@ get_api_data() {
 get_api_data
 
 # 1. Identify Apps Managed by Homebrew (using brew info --installed)
-echo "Gathering information about installed casks..." >&2
+log_info "${COLOR_DIM}Gathering information about installed casks...${COLOR_RESET}"
 typeset -A installed_app_paths # Map: Full App Path -> Cask Token
+local installed_cask_count=0 # Counter for verbose output
+
+# Temporarily disable exit on error for the brew/jq pipeline
+set +e
+brew_info_output=$(brew info --json=v2 --installed)
+brew_info_exit_code=$?
+set -e
+
+if [[ $brew_info_exit_code -ne 0 ]]; then
+    echo "${COLOR_ERROR}Error:${COLOR_RESET} 'brew info --json=v2 --installed' failed with exit code $brew_info_exit_code." >&2
+    # Optionally print brew output if available? Might be large.
+    exit 1
+fi
+
+# Process the output
+# Use process substitution <(...) to avoid subshell issues with the associative array
+# Use noglob prefix to prevent zsh from interpreting jq query characters
+# Use more defensive jq query with '?' to handle potentially missing/null fields
 while IFS=$'\t' read -r cask_token app_path_raw; do
   # --- Resolve App Path from 'brew info' ---
   # 'brew info' might give absolute paths, relative paths, or just filenames.
@@ -184,7 +280,7 @@ while IFS=$'\t' read -r cask_token app_path_raw; do
       abs_app_path=$(readlink -f "/Applications/$app_path_raw" || true)
     elif [[ -e "$HOME/Applications/$app_path_raw" ]]; then
       abs_app_path=$(readlink -f "$HOME/Applications/$app_path_raw" || true)
-    elif [[ -e "/usr/local/Caskroom/$cask_token/latest/$app_path_raw" ]]; then
+    elif [[ -n "$cask_token" && -e "/usr/local/Caskroom/$cask_token/latest/$app_path_raw" ]]; then # Check cask_token is not empty
        # Check within the caskroom itself as a fallback (less common case)
        abs_app_path=$(readlink -f "/usr/local/Caskroom/$cask_token/latest/$app_path_raw" || true)
     fi
@@ -196,22 +292,38 @@ while IFS=$'\t' read -r cask_token app_path_raw; do
   trimmed_abs_app_path=${abs_app_path## ##}; trimmed_abs_app_path=${trimmed_abs_app_path%% ##}
   if [[ -n "$trimmed_abs_app_path" && "$trimmed_abs_app_path" != "/" ]]; then # Ensure it's a valid, non-root path
       unquoted_path=${trimmed_abs_app_path#\"}; unquoted_path=${unquoted_path%\"}
-      if [[ -n "$unquoted_path" ]]; then
+      if [[ -n "$unquoted_path" && -n "$cask_token" ]]; then # Ensure both path and token are valid
           # Add the canonical path and its managing cask token to the map
           installed_app_paths["$unquoted_path"]="$cask_token"
+          ((installed_cask_count++))
+          if [[ "$VERBOSE" == "true" ]]; then
+              log_info "  ${COLOR_DIM}- Found installed cask '$cask_token' managing path: $unquoted_path${COLOR_RESET}"
+          fi
       fi
   fi
-done < <(brew info --json=v2 --installed | jq -r '
-  .casks[] | .token as $token | .artifacts[] | (
+# Sanitize brew output using perl to remove problematic control characters before piping to jq
+done < <(printf "%s" "$brew_info_output" | perl -pe 's/[\x00-\x08\x0B\x0C\x0E-\x1F]//g' | jq -r '
+  .casks[]? # Iterate safely over casks
+  | .token? as $token # Safely get token
+  | select($token) # Ensure token is not null
+  | .artifacts[]? as $artifact # Safely iterate artifacts
+  | ( # Try to extract app path
       if type == "array" and (.[0]? | type == "string" and endswith(".app")) then .[0]
       elif type == "object" and .app? and (.app[0]? | type == "string" and endswith(".app")) then .app[0]
       else empty
       end
-  ) as $app_path | select($app_path) | $token + "\t" + $app_path
+    ) as $app_path # Assign result (potential null)
+  | select($app_path) # Ensure app_path is not null/empty
+  | $token + "\t" + $app_path # Output token and path
 ')
 
+
+if [[ "$VERBOSE" == "true" ]]; then
+    log_info "${COLOR_DIM}Identified $installed_cask_count managed application paths from installed casks.${COLOR_RESET}"
+fi
+
 # 2. Create Lookup Map from API Data: App Filename -> "Token\tHomepage"
-echo "Processing API data..." >&2
+log_info "${COLOR_DIM}Processing API data...${COLOR_RESET}"
 typeset -A api_app_details_map # Map: App Filename -> "Token\tHomepage"
 while IFS=$'\t' read -r token app_name homepage; do # Read homepage too
     trimmed_app_name=${app_name## ##}; trimmed_app_name=${trimmed_app_name%% ##}
@@ -248,11 +360,11 @@ while IFS=$'\t' read -r token app_name homepage; do # Read homepage too
     # Output: token, app_filename, homepage (tab-separated) for shell processing
     $token + "\t" + $app_filename + "\t" + $hp
 ' "$CACHE_FILE")
-echo "API map created with ${#api_app_details_map} entries." >&2
+log_info "${COLOR_DIM}API map created with ${#api_app_details_map} entries.${COLOR_RESET}"
 
 
 # 3. Find All Apps on System
-echo "Scanning application directories..." >&2
+log_info "${COLOR_DIM}Scanning application directories: ${(j:, :)APP_DIRS}${COLOR_RESET}" # Show which dirs are scanned
 found_app_paths=() # List of full paths to .app files found
 for dir in "${APP_DIRS[@]}"; do
   if [[ -d "$dir" ]]; then
@@ -270,11 +382,13 @@ for dir in "${APP_DIRS[@]}"; do
 done
 
 # 4. Compare and Report
-echo
-echo "Apps installable via Homebrew Cask but not currently managed:"
-echo "(Verified against Homebrew API data)"
-echo "-------------------------------------------------------------"
-processed_apps=() # Track processed app basenames (lowercase) to avoid duplicates
+report_lines=()     # Array to store formatted output lines for sorting
+processed_apps=()   # Track processed app basenames (lowercase) to avoid duplicates
+# Counters for verbose summary
+skipped_managed_count=0
+skipped_processed_count=0
+skipped_no_cask_count=0
+apps_to_install_interactively=() # Store details for interactive mode
 
 for app_path in "${found_app_paths[@]}"; do
     # 4a. Check if this exact path is managed by an *installed* cask
@@ -283,15 +397,27 @@ for app_path in "${found_app_paths[@]}"; do
         unquoted_key=${key#\"}; unquoted_key=${unquoted_key%\"}
         if [[ "$app_path" == "$unquoted_key" ]]; then
             is_managed="true"; break
+            fi
+        done
+        if [[ "$is_managed" == "true" ]]; then
+            ((skipped_managed_count++)) # Keep original ((...)) here as it didn't seem to cause issues
+            if [[ "$VERBOSE" == "true" ]]; then
+            log_info "  ${COLOR_DIM}- Skipping (already managed): $app_path (by cask: ${installed_app_paths[$app_path]})${COLOR_RESET}"
         fi
-    done
-    if [[ "$is_managed" == "true" ]]; then continue; fi # Skip if managed
+        continue # Skip if managed
+    fi
 
     # 4b. App not managed. Check if its filename exists in the API data map.
     app_filename=$(basename "$app_path") # e.g., LuLu.app
 
     lc_app_filename=${(L)app_filename}
-    if [[ " ${processed_apps[*]} " =~ " ${lc_app_filename} " ]]; then continue; fi
+    if [[ " ${processed_apps[*]} " =~ " ${lc_app_filename} " ]]; then
+        skipped_processed_count=$((skipped_processed_count + 1)) # Use $((...)) arithmetic expansion
+        if [[ "$VERBOSE" == "true" ]]; then
+             log_info "  ${COLOR_DIM}- Skipping (duplicate basename): $app_filename from path $app_path${COLOR_RESET}"
+        fi
+        continue # Already processed this app basename
+    fi
     processed_apps+=("$lc_app_filename")
 
     # 4c. Look up the app filename in the API map using explicit iteration
@@ -306,20 +432,109 @@ for app_path in "${found_app_paths[@]}"; do
             # Extract token and homepage from map value using zsh parameter expansion
             local details_string="${api_app_details_map[$key]}"
             local details_array=("${(@s:\t:)details_string}") # Split by tab
-            actual_cask_token=${details_array[1]}
-            homepage=${details_array[2]}
-            break # Found a match
+            # Safely access array elements, providing empty defaults if they don't exist
+            actual_cask_token=${details_array[1]:-} # Default to empty if index 1 is unset
+            homepage=${details_array[2]:-}          # Default to empty if index 2 is unset
+            # Ensure we actually got a token before breaking
+            if [[ -n "$actual_cask_token" ]]; then
+                break # Found a match with a token
+            fi
         fi
     done
 
     # 4d. Report if found in API data
     if [[ -n "$actual_cask_token" ]]; then
-        # Corrected printf format string
-        printf "  • %-35s (cask: %s | homepage: %s)\n" "${app_filename%.app}" "$actual_cask_token" "$homepage"
+        # Format the output line with colors and command, store in array
+        local app_name_display="${app_filename%.app}" # Remove .app suffix
+        local line=""
+        line+="${COLOR_APP_NAME}${app_name_display}${COLOR_RESET}\n"
+        line+="  ${COLOR_DIM}Cask:${COLOR_RESET}     ${COLOR_CASK_TOKEN}${actual_cask_token}${COLOR_RESET}\n"
+        line+="  ${COLOR_DIM}Homepage:${COLOR_RESET} ${COLOR_HOMEPAGE}${homepage}${COLOR_RESET}\n"
+        line+="  ${COLOR_DIM}Install:${COLOR_RESET}  ${COLOR_COMMAND}brew install --cask ${actual_cask_token}${COLOR_RESET}\n"
+        report_lines+=("$line")
+        # Store details for interactive mode if needed
+        if [[ "$INTERACTIVE" == "true" ]]; then
+            apps_to_install_interactively+=("${app_name_display}\t${actual_cask_token}")
+        fi
+    else
+         # App filename not found in API map
+         skipped_no_cask_count=$((skipped_no_cask_count + 1)) # Use $((...)) arithmetic expansion
+         if [[ "$VERBOSE" == "true" ]]; then
+             log_info "  ${COLOR_DIM}- Skipping (no verified cask found): $app_filename from path $app_path${COLOR_RESET}"
+         fi
     fi
  done
 
-echo "-------------------------------------------------------------"
-echo "Note: List shows apps found on your system that are not managed"
-echo "      by an installed Homebrew cask, but for which a verified"
-echo "      cask exists in the Homebrew repository. Check homepage to confirm."
+# --- Print Sorted Report ---
+echo # Add a newline before the report
+
+if [[ ${#report_lines[@]} -eq 0 ]]; then
+    # Only print this if not in quiet mode
+    if [[ "$QUIET" == "false" ]]; then
+        echo "${COLOR_HEADER}✅ No manually installed applications found with corresponding Homebrew Casks.${COLOR_RESET}"
+    fi
+else
+    # Print header unless in quiet mode
+    if [[ "$QUIET" == "false" ]]; then
+        echo "${COLOR_HEADER}🔎 Apps installable via Homebrew Cask but not currently managed:${COLOR_RESET}"
+        echo "${COLOR_DIM}(Verified against Homebrew API data)${COLOR_RESET}"
+        echo "${COLOR_HEADER}-------------------------------------------------------------${COLOR_RESET}"
+    fi
+
+    # Sort the report lines alphabetically (case-insensitive using 'on')
+    sorted_report_lines=("${(on)report_lines}")
+
+    # Print each sorted line
+    for line in "${sorted_report_lines[@]}"; do
+        print -- "$line" # Use print (without -r) to interpret escape codes correctly
+    done
+
+    # Print footer unless in quiet mode
+    if [[ "$QUIET" == "false" ]]; then
+        echo "${COLOR_HEADER}-------------------------------------------------------------${COLOR_RESET}"
+        echo "${COLOR_DIM}Note: Review the homepage URL to confirm the cask matches your app before installing.${COLOR_RESET}"
+    fi
+fi
+
+# Add Summary Count if not in quiet mode
+log_info "\n${COLOR_BOLD}Summary: Found ${#report_lines[@]} potential cask migration(s).${COLOR_RESET}"
+if [[ "$VERBOSE" == "true" ]]; then
+    # Ensure counts are printed even if 0, for clarity in verbose mode
+    log_info "${COLOR_DIM}  (${skipped_managed_count:-0} skipped as already managed by brew)"
+    log_info "  (${skipped_processed_count:-0} skipped as duplicate app name)"
+    log_info "  (${skipped_no_cask_count:-0} skipped as no verified cask found in API data)${COLOR_RESET}"
+fi
+
+# --- Interactive Installation ---
+if [[ "$INTERACTIVE" == "true" && ${#apps_to_install_interactively[@]} -gt 0 ]]; then
+    echo "\n${COLOR_HEADER}--- Interactive Installation ---${COLOR_RESET}"
+    for app_details in "${apps_to_install_interactively[@]}"; do
+        local app_name cask_token
+        # Split the stored details string by tab
+        app_name="${app_details%%$'\t'*}"
+        cask_token="${app_details#*$'\t'}"
+
+        # Ask user for confirmation
+        # Use vared for interactive input in Zsh
+        local reply
+        print -n "${COLOR_PROMPT}Install cask '${COLOR_CASK_TOKEN}${cask_token}${COLOR_PROMPT}' for '${COLOR_APP_NAME}${app_name}${COLOR_PROMPT}'? [y/N]: ${COLOR_RESET}"
+        vared -c reply
+        # Default to No if user just presses Enter
+        reply=${reply:-n}
+
+        if [[ "$reply" =~ ^[Yy]$ ]]; then
+            echo "${COLOR_DIM}Running: brew install --cask $cask_token${COLOR_RESET}"
+            # Execute the command - consider potential errors
+            if brew install --cask "$cask_token"; then
+                echo "${COLOR_COMMAND}Successfully installed $cask_token.${COLOR_RESET}"
+            else
+                echo "${COLOR_ERROR}Error installing $cask_token. Please check brew output.${COLOR_RESET}"
+            fi
+        else
+            echo "${COLOR_DIM}Skipping installation for $app_name.${COLOR_RESET}"
+        fi
+    done
+    echo "\n${COLOR_HEADER}--- Interactive Installation Complete ---${COLOR_RESET}"
+fi
+
+exit 0 # Explicitly exit with success code if script completes
