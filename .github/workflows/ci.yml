@@ -7,24 +7,10 @@ on:
     branches: [ main ] # Trigger on PRs targeting main
 
 jobs:
-  shellcheck: # Keep the linting job
-    name: Run ShellCheck
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Run ShellCheck
-      uses: ludeeus/action-shellcheck@2.0.0
-      with:
-        scandir: './scripts'
-      env:
-        SHELLCHECK_OPTS: -e SC2034 # Example: Ignore unused variable warnings if needed
-
-  bats_test: # New job for running tests
+  # Shellcheck job removed as it does not support Zsh scripts (SC1071)
+  bats_test: # Job for running tests
     name: Run Bats Tests
-    needs: shellcheck # Optional: Run tests only if linting passes
+    # Removed 'needs: shellcheck' as the shellcheck job is gone
     runs-on: ubuntu-latest
 
     steps:
