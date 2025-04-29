@@ -10,6 +10,7 @@ The current workflow requires users to manually uninstall an application before 
     *   **Concept:** Add a flag (e.g., `--move-to-trash` or integrate with `-i`) that, if confirmed, moves the identified `.app` bundle to the Trash before attempting `brew install --cask`.
     *   **Pros:** Addresses the manual uninstall step for simple apps. Relatively safe (Trash allows recovery).
     *   **Cons:** Doesn't handle complex uninstallers or scattered support files. Requires careful path targeting.
+    *   **Note:** Could include a `--dry-run` flag to preview actions without execution.
 
 2.  **Enhanced Interactive Mode (`-i`) Options:**
     *   **Concept:** Expand the interactive prompt beyond just `[y/N]`.
@@ -20,6 +21,8 @@ The current workflow requires users to manually uninstall an application before 
         *   `[s]kip all`: Stop prompting for remaining apps.
         *   `[o]pen homepage`: Open the cask's homepage for verification.
         *   `[d]etails`: Show more info (`brew info cask-token`).
+        *   `[a]dd to ignore`: Add the current app to a persistent ignore list.
+        *   `[q]uit`: Exit the interactive session.
     *   **Pros:** More user control and information within the workflow.
     *   **Cons:** Increases prompt complexity. Requires additional logic.
 
@@ -41,6 +44,7 @@ The current workflow requires users to manually uninstall an application before 
 ## Other Potential Ideas
 
 *   **Support for Third-Party Taps:** Option to include casks from user-tapped repositories.
-*   **App Version Comparison:** Check if the manually installed version is newer/older than the cask version.
+*   **Semantic Version Comparison:** Implement proper semantic version comparison (e.g., using external tools or libraries if necessary) to more accurately determine if the cask version is newer, older, or the same, highlighting major vs. minor differences.
+*   **Pre-flight Disk Space Check:** Before attempting installation, check if there is sufficient disk space available for the cask.
 *   **More Sophisticated Uninstall:** Integrate with tools like `trash` CLI or explore app-specific uninstall scripts (though this is significantly more complex).
 *   **Output Formatting Options:** Allow different output formats (e.g., JSON, CSV).
