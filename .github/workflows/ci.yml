@@ -51,4 +51,4 @@ jobs:
       run: chmod +x ./scripts/find-missing-casks.sh
 
     - name: Run Bats tests
-      run: bats tests # Run all .bats files in the tests directory
+      run: bats -t tests # Run all .bats files in the tests directory with tracing
