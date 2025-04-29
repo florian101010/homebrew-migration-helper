@@ -32,6 +32,15 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "Script accepts -v option without error" {
+  # Run the script with zsh and the -v flag
+  # Note: This test assumes brew/curl/jq exist.
+  run zsh ../scripts/find-missing-casks.sh -v
+  # Assert that the exit status is 0 (success)
+  # We don't assert specific verbose output here without mocking.
+  [ "$status" -eq 0 ]
+}
+
 # Add more tests here...
 # Example: Test default run (might require mocking brew/curl/jq)
 # @test "Script runs with default options without error (requires mocks)" {
