@@ -3,8 +3,16 @@ name: CI Checks # Renamed workflow
 on:
   push:
     branches: [ main ] # Trigger on pushes to main
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main ] # Trigger on PRs targeting main
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/ci.yml'
 
 jobs:
   # Shellcheck job removed as it does not support Zsh scripts (SC1071)
