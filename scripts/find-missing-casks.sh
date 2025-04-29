@@ -2,7 +2,6 @@
 set -euo pipefail
 # Test comment to trigger CI again
 # Dependencies: curl, jq
-# Author: Florian Grimmer
 
 # --- Default Configuration ---
 DEFAULT_APP_DIRS=("/Applications" "$HOME/Applications")
