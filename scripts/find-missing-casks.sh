@@ -1,7 +1,5 @@
 #!/usr/bin/env zsh
 set -euo pipefail
-# Test comment to trigger CI
-
 # Dependencies: curl, jq
 
 # --- Default Configuration ---
