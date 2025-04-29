@@ -33,3 +33,4 @@ Temporary Items
 
 # Test artifacts
 /tests/find-missing-casks-tests.*
+repomix-output.xml
