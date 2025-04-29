@@ -192,7 +192,12 @@ get_api_data() {
 
   if [[ "$needs_fetch" == "false" ]]; then # Only check cache if not forcing fetch
       if [[ -f "$CACHE_FILE" ]]; then
-          file_mod_time=$(stat -f %m "$CACHE_FILE") # macOS stat syntax
+          # Cross-platform stat command for modification time
+          if [[ "$(uname)" == "Darwin" ]]; then
+              file_mod_time=$(stat -f %m "$CACHE_FILE") # macOS
+          else
+              file_mod_time=$(stat -c %Y "$CACHE_FILE") # Linux
+          fi
           if (( current_time - file_mod_time > CACHE_TTL_SECONDS )); then
               needs_fetch=true
               log_info "${COLOR_DIM}Cache expired (> $CACHE_TTL_SECONDS seconds old), fetching fresh API data from $API_URL ...${COLOR_RESET}"
