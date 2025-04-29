@@ -94,8 +94,9 @@ fi
 
 # Now the filter should be the first argument
 filter="$1"
-# The file should be the last argument
-file="${@: -1}"
+# The file should be the last argument (POSIX-compliant way)
+for last; do :; done
+file="$last"
 
 # Debugging output for the mock itself
 # echo "Mock jq: raw_output=$raw_output, filter='$filter', file='$file'" >&2
