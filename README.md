@@ -1,5 +1,7 @@
 # 🍺 Homebrew Migration Helper (`scripts/find-missing-casks.sh`)
 
+[![CI Checks](https://github.com/florian101010/homebrew-migration-helper/actions/workflows/ci.yml/badge.svg)](https://github.com/florian101010/homebrew-migration-helper/actions/workflows/ci.yml)
+
 A handy script to identify manually installed macOS applications that have an official Homebrew Cask available. Simplify your app management!
 
 ## 🏠 About Homebrew
@@ -38,9 +40,10 @@ Follow these steps to use the `scripts/find-missing-casks.sh` script:
 
 1.  **Clone/Download:** Get the script by cloning this repository or downloading `scripts/find-missing-casks.sh`.
     ```bash
-    # Example using git clone
+    # Example using git clone (ensure you are on the 'main' branch)
     git clone https://github.com/florian101010/homebrew-migration-helper.git
     cd homebrew-migration-helper
+    # git checkout main # Usually already the default after cloning
     ```
 2.  **Execute:** Run the script using `zsh`:
     ```bash

@@ -19,9 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -   Command-line options: `-d`, `-c`, `-t`, `-f`, `-v`, `-q`, `-i`, `-h`.
 -   Colorized output for terminal readability.
 -   Informational logging to stderr, results to stdout.
--   Basic documentation: `README.md`, `docs/SCRIPT_DETAILS.md`, `docs/TROUBLESHOOTING.md`.
--   `LICENSE` (MIT), `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`.
--   `.gitignore` file.
+- Basic documentation: `README.md`, `docs/SCRIPT_DETAILS.md`, `docs/TROUBLESHOOTING.md`.
+- `LICENSE` (MIT), `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`.
+- `.gitignore` file.
+- GitHub Actions CI workflow for linting (`shellcheck`) and basic testing (`bats-core`).
+- Initial automated tests (`tests/basic.bats`).
+- Issue and Pull Request templates (`.github/`).
 
 ### Changed
 
