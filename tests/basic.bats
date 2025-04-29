@@ -28,6 +28,8 @@ setup() {
   export PATH="$MOCK_BIN_DIR:$PATH"
   # Export TEST_DIR so mocks can access mock data files
   export TEST_DIR
+  # Export path to mock jq for the main script to use
+  export HMH_MOCK_JQ_PATH="$MOCK_BIN_DIR/jq"
 
   # --- Create Mock Commands ---
   # Mock 'brew'

@@ -205,10 +205,24 @@ if [[ "$QUIET" == "true" ]]; then
     VERBOSE=false # Quiet overrides verbose
 fi
 
+# --- Determine JQ Command ---
+# Allow overriding jq path via environment variable for testing
+JQ_CMD="jq"
+if [[ -n "$HMH_MOCK_JQ_PATH" && -x "$HMH_MOCK_JQ_PATH" ]]; then
+    JQ_CMD="$HMH_MOCK_JQ_PATH"
+    log_info "${COLOR_DIM}Using mock jq command: $JQ_CMD${COLOR_RESET}"
+fi
+
 # --- Dependency Checks ---
 # Check dependencies (moved after arg parsing in case paths change, though unlikely for jq/curl)
-if ! command -v jq &> /dev/null; then
-  echo "${COLOR_ERROR}Error:${COLOR_RESET} jq is required but not installed. Please install it (e.g., 'brew install jq')." >&2
+# Check the determined JQ_CMD
+if ! command -v "$JQ_CMD" &> /dev/null; then
+  # Provide specific error message if using mock
+  if [[ "$JQ_CMD" != "jq" ]]; then
+      echo "${COLOR_ERROR}Error:${COLOR_RESET} Mock jq command specified by HMH_MOCK_JQ_PATH ('$JQ_CMD') not found or not executable." >&2
+  else
+      echo "${COLOR_ERROR}Error:${COLOR_RESET} jq is required but not installed. Please install it (e.g., 'brew install jq')." >&2
+  fi
   exit 1
 fi
 if ! command -v curl &> /dev/null; then
@@ -267,7 +281,7 @@ get_api_data() {
         if [[ ! -f "$CACHE_FILE" ]]; then echo "${COLOR_ERROR}Error:${COLOR_RESET} No existing cache file to fall back on." >&2; fi
         exit 1
     else
-        if jq empty "$temp_file" > /dev/null 2>&1; then
+        if "$JQ_CMD" empty "$temp_file" > /dev/null 2>&1; then
             mv "$temp_file" "$CACHE_FILE"
             log_info "${COLOR_DIM}API data updated successfully.${COLOR_RESET}"
         else
@@ -283,7 +297,7 @@ get_api_data() {
     fi
   fi
   # Final check for valid cache file remains critical
-  if [[ ! -f "$CACHE_FILE" ]] || ! jq empty "$CACHE_FILE" > /dev/null 2>&1; then
+  if [[ ! -f "$CACHE_FILE" ]] || ! "$JQ_CMD" empty "$CACHE_FILE" > /dev/null 2>&1; then
       echo "${COLOR_ERROR}Error:${COLOR_RESET} Cannot proceed without valid API data cache ($CACHE_FILE)." >&2
       exit 1
   fi
@@ -353,7 +367,7 @@ while IFS=$'\t' read -r cask_token app_path_raw; do
   fi
 # Sanitize brew output using perl to remove problematic control characters before piping to jq
 # Sanitize brew output using perl to remove problematic control characters before piping to jq
-done < <(printf "%s" "$brew_info_output" | perl -pe 's/[\x00-\x08\x0B\x0C\x0E-\x1F]//g' | jq -r '
+done < <(printf "%s" "$brew_info_output" | perl -pe 's/[\x00-\x08\x0B\x0C\x0E-\x1F]//g' | "$JQ_CMD" -r '
   .casks[]? # Iterate safely over casks
   | .token? as $token # Safely get token
   | select($token) # Ensure token is not null
@@ -383,7 +397,7 @@ while IFS=$'\t' read -r token app_name homepage version; do # Read homepage and 
         # Store token, homepage, and version, tab-separated
         api_app_details_map["$unquoted_app_name"]="$token\t$homepage\t$version"
     fi
- done < <(jq -r '
+ done < <("$JQ_CMD" -r '
     # --- JQ Query: Extract App Filename, Token, Homepage, Version from API Data ---
     # Iterate through each cask object in the top-level array
     .[] |
