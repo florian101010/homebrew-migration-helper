@@ -20,7 +20,14 @@ FORCE_FETCH=false
 
 # --- Usage Function ---
 usage() {
-  cat << EOF
+  local exit_code=${1:-0} # Default exit code 0 if no argument provided
+  # Print usage message to stderr if exiting due to an error
+  local output_stream=1 # stdout
+  if [[ $exit_code -ne 0 ]]; then
+    output_stream=2 # stderr
+  fi
+
+  cat >&$output_stream << EOF
 Usage: $(basename "$0") [-d <dir>] [-c <cache_dir>] [-t <ttl_seconds>] [-f] [-h]
 
 Scans specified directories for manually installed macOS applications (.app)
@@ -34,9 +41,9 @@ Options:
   -t <ttl_seconds> Set the cache Time-To-Live in seconds.
                    (Default: 86400 seconds = 24 hours)
   -f               Force fetch new API data, ignoring existing cache TTL.
-  -h               Display this help message and exit.
+  -h               Display this help message and exit successfully.
 EOF
-  exit 0
+  exit "$exit_code"
 }
 
 # --- Argument Parsing ---
@@ -69,11 +76,11 @@ while getopts ":hd:c:t:f" opt; do
       ;;
     \? )
       echo "Invalid Option: -$OPTARG" 1>&2
-      usage # Exit after showing usage for invalid option
+      usage 1 # Exit with code 1 for invalid option
       ;;
     : )
       echo "Invalid Option: -$OPTARG requires an argument" 1>&2
-      usage # Exit after showing usage for missing argument
+      usage 1 # Exit with code 1 for missing argument
       ;;
   esac
 done

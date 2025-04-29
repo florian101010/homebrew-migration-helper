@@ -82,19 +82,39 @@ echo "--- Running Tests ---"
 
 # Test 1: Help flag exits successfully and shows usage
 echo "\n[Test 1: Help Flag]"
+echo "Running: $SCRIPT_TO_TEST -h"
+# Temporarily disable exit on error to capture the exit code reliably
+set +e
 output_help=$("$SCRIPT_TO_TEST" -h 2>&1)
 exit_code_help=$?
+echo "Exit code captured: $exit_code_help"
 assert_success "Script exits successfully with -h" $exit_code_help
-assert_output_contains "Help output contains 'Usage:'" "$output_help" "Usage:"
-assert_output_contains "Help output contains '-d <dir>'" "$output_help" "-d <dir>"
+set -e # Re-enable exit on error *after* the exit code assertion
+# Only check output if the exit code was 0, as expected by usage()
+if [[ $exit_code_help -eq 0 ]]; then
+    assert_output_contains "Help output contains 'Usage:'" "$output_help" "Usage:"
+    assert_output_contains "Help output contains '-d <dir>'" "$output_help" "-d <dir>"
+else
+    echo "Skipping output checks for Test 1 due to non-zero exit code."
+fi
 
 
 # Test 2: Invalid option exits with non-zero code
 echo "\n[Test 2: Invalid Option]"
+echo "Running: $SCRIPT_TO_TEST -z"
+# Temporarily disable exit on error to capture the expected non-zero exit code
+set +e
 output_invalid=$("$SCRIPT_TO_TEST" -z 2>&1)
 exit_code_invalid=$?
+set -e # Re-enable exit on error
+echo "Exit code captured: $exit_code_invalid"
 assert_fail "Script exits with non-zero code for invalid option -z" $exit_code_invalid
-assert_output_contains "Invalid option output contains 'Invalid Option:'" "$output_invalid" "Invalid Option:"
+# Only check output if the exit code was non-zero, as expected
+if [[ $exit_code_invalid -ne 0 ]]; then
+    assert_output_contains "Invalid option output contains 'Invalid Option:'" "$output_invalid" "Invalid Option:"
+else
+    echo "Skipping output check for Test 2 due to unexpected exit code 0."
+fi
 
 
 # --- More Test Cases (Placeholders - Require Mocking) ---
