@@ -208,8 +208,9 @@ fi
 # --- Determine JQ Command ---
 # Allow overriding jq path via environment variable for testing
 JQ_CMD="jq"
-if [[ -n "$HMH_MOCK_JQ_PATH" && -x "$HMH_MOCK_JQ_PATH" ]]; then
-    JQ_CMD="$HMH_MOCK_JQ_PATH"
+# Use parameter expansion ${VAR:-} to avoid error with set -u when var is unset
+if [[ -n "${HMH_MOCK_JQ_PATH:-}" && -x "${HMH_MOCK_JQ_PATH:-}" ]]; then
+    JQ_CMD="${HMH_MOCK_JQ_PATH:-}" # Use expansion here too for safety
     log_info "${COLOR_DIM}Using mock jq command: $JQ_CMD${COLOR_RESET}"
 fi
 
@@ -281,7 +282,8 @@ get_api_data() {
         if [[ ! -f "$CACHE_FILE" ]]; then echo "${COLOR_ERROR}Error:${COLOR_RESET} No existing cache file to fall back on." >&2; fi
         exit 1
     else
-        if "$JQ_CMD" empty "$temp_file" > /dev/null 2>&1; then
+        # Modify the jq empty check to NOT redirect stderr (remove 2>&1) for better CI debugging
+        if "$JQ_CMD" empty "$temp_file" > /dev/null; then
             mv "$temp_file" "$CACHE_FILE"
             log_info "${COLOR_DIM}API data updated successfully.${COLOR_RESET}"
         else
