@@ -17,6 +17,24 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
 
+    - name: Install prerequisites (Linux)
+      run: sudo apt-get update && sudo apt-get install -y curl build-essential procps file git zsh jq
+
+    - name: Install Homebrew (Linux)
+      run: |
+        echo "NONINTERACTIVE=1" >> $GITHUB_ENV
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      env:
+         # Prevents prompts during installation
+         CI: true
+
+    - name: Add Homebrew to PATH (Linux)
+      run: |
+        echo "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin" >> $GITHUB_PATH
+
+    - name: Verify brew installation
+      run: brew --version
+
     - name: Set up Bats
       uses: bats-core/bats-action@2.0.0 # Action to install bats-core and helpers
       # Installs bats, bats-support, bats-assert
