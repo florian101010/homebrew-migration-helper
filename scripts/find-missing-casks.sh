@@ -52,9 +52,10 @@ fi
 # Prints informational messages to stderr, suppressed if QUIET is true
 log_info() {
     if [[ "$QUIET" == "false" ]]; then
-        echo "$@" >&2
-    fi
-}
+            # Add \n back to add blank line after status messages
+            echo -e "$@\n" >&2
+        fi
+    }
 # --- End Logging Function ---
 
 # --- Usage Function ---
@@ -187,7 +188,7 @@ get_api_data() {
   local file_mod_time=0
 
   if [[ "$FORCE_FETCH" == "true" ]]; then
-      log_info "${COLOR_DIM}Forcing API data fetch due to -f flag...${COLOR_RESET}"
+      log_info "⏳ ${COLOR_DIM}Forcing API data fetch (-f)...${COLOR_RESET}"
   fi
 
   if [[ "$needs_fetch" == "false" ]]; then # Only check cache if not forcing fetch
@@ -197,16 +198,19 @@ get_api_data() {
               needs_fetch=true
               log_info "${COLOR_DIM}Cache expired (> $CACHE_TTL_SECONDS seconds old), fetching fresh API data from $API_URL ...${COLOR_RESET}"
           else
-              log_info "${COLOR_DIM}Using cached API data (less than $CACHE_TTL_SECONDS seconds old)...${COLOR_RESET}"
+              log_info "💾 ${COLOR_DIM}Using cached API data (less than $CACHE_TTL_SECONDS seconds old)...${COLOR_RESET}"
           fi
       else
           needs_fetch=true
-          log_info "${COLOR_DIM}No cache file found. Fetching API data from $API_URL ...${COLOR_RESET}"
+          log_info "☁️ ${COLOR_DIM}No cache file found. Fetching API data from $API_URL ...${COLOR_RESET}"
       fi
   fi
 
   if "$needs_fetch"; then
-    log_info "${COLOR_DIM}Fetching API data from $API_URL ...${COLOR_RESET}" # Moved here to avoid duplicate message
+    # Ensure fetch message is printed if needed, avoiding duplication if cache expired/missing
+    if [[ "$FORCE_FETCH" == "false" ]]; then # Only print if not already forced
+        log_info "☁️ ${COLOR_DIM}Fetching API data from $API_URL ...${COLOR_RESET}"
+    fi
     local temp_file=$(mktemp "$CACHE_DIR/cask_api_data.json.XXXXXX")
     # Use -f (--fail) to make curl exit non-zero on server errors (4xx, 5xx)
     if ! curl --fail --silent --location "$API_URL" -o "$temp_file"; then
@@ -245,7 +249,7 @@ get_api_data() {
 get_api_data
 
 # 1. Identify Apps Managed by Homebrew (using brew info --installed)
-log_info "${COLOR_DIM}Gathering information about installed casks...${COLOR_RESET}"
+log_info "📦 ${COLOR_DIM}Gathering information about installed casks...${COLOR_RESET}"
 typeset -A installed_app_paths # Map: Full App Path -> Cask Token
 local installed_cask_count=0 # Counter for verbose output
 
@@ -323,7 +327,7 @@ if [[ "$VERBOSE" == "true" ]]; then
 fi
 
 # 2. Create Lookup Map from API Data: App Filename -> "Token\tHomepage"
-log_info "${COLOR_DIM}Processing API data...${COLOR_RESET}"
+log_info "⚙️  ${COLOR_DIM}Processing API data into lookup map...${COLOR_RESET}"
 typeset -A api_app_details_map # Map: App Filename -> "Token\tHomepage"
 while IFS=$'\t' read -r token app_name homepage; do # Read homepage too
     trimmed_app_name=${app_name## ##}; trimmed_app_name=${trimmed_app_name%% ##}
@@ -360,11 +364,11 @@ while IFS=$'\t' read -r token app_name homepage; do # Read homepage too
     # Output: token, app_filename, homepage (tab-separated) for shell processing
     $token + "\t" + $app_filename + "\t" + $hp
 ' "$CACHE_FILE")
-log_info "${COLOR_DIM}API map created with ${#api_app_details_map} entries.${COLOR_RESET}"
+log_info "🗺️  ${COLOR_DIM}API map created with ${#api_app_details_map} entries.${COLOR_RESET}"
 
 
 # 3. Find All Apps on System
-log_info "${COLOR_DIM}Scanning application directories: ${(j:, :)APP_DIRS}${COLOR_RESET}" # Show which dirs are scanned
+log_info "🔍 ${COLOR_DIM}Scanning application directories: ${(j:, :)APP_DIRS}${COLOR_RESET}" # Show which dirs are scanned
 found_app_paths=() # List of full paths to .app files found
 for dir in "${APP_DIRS[@]}"; do
   if [[ -d "$dir" ]]; then
@@ -494,24 +498,26 @@ else
     # Print footer unless in quiet mode
     if [[ "$QUIET" == "false" ]]; then
         echo "${COLOR_HEADER}===================================================================${COLOR_RESET}"
-        echo "💡 ${COLOR_BOLD}Next Steps:${COLOR_RESET}"
-        echo "   1. ${COLOR_DIM}Verify:${COLOR_RESET} Check the 🔗 Homepage for each app to ensure the cask is correct."
-        echo "   2. ${COLOR_DIM}Decide:${COLOR_RESET} Choose whether to migrate the app to Homebrew management."
-        echo "   3. ${COLOR_DIM}Migrate (Optional):${COLOR_RESET} If migrating, uninstall the manual version first,"
+        # Add blank line before Next Steps
+        echo "\n💡 ${COLOR_BOLD}Next Steps:${COLOR_RESET}"
+        echo # Add blank line *after* the header
+        echo "   1. ${COLOR_BOLD}Verify:${COLOR_RESET} Check the 🔗 Homepage for each app to ensure the cask is correct."
+        echo "   2. ${COLOR_BOLD}Decide:${COLOR_RESET} Choose whether to migrate the app to Homebrew management."
+        echo "   3. ${COLOR_BOLD}Migrate (Optional):${COLOR_RESET} If migrating, ${COLOR_BOLD}uninstall the manual version first,${COLOR_RESET}"
         echo "      then run the ▶️  Install command provided (e.g., ${COLOR_COMMAND}brew install --cask ...${COLOR_RESET})."
         echo "   (Use the ${COLOR_BOLD}-i${COLOR_RESET} flag for interactive installation prompts)."
-
     fi
 fi
 
 # Add Summary Count (always printed to stderr unless quiet)
-log_info "\n${COLOR_HEADER}📊 Summary${COLOR_RESET}"
+echo "" # Add explicit blank line before Summary header (stderr)
+log_info "${COLOR_HEADER}📊 Summary${COLOR_RESET}" # log_info will add another blank line after this
 log_info "${COLOR_BOLD}   Found ${#report_lines[@]} potential cask migration(s).${COLOR_RESET}"
 if [[ "$VERBOSE" == "true" ]]; then
-    # Ensure counts are printed even if 0, for clarity in verbose mode
-    log_info "${COLOR_DIM}   (${skipped_managed_count:-0} apps skipped as already managed by brew)"
-    log_info "${COLOR_DIM}   (${skipped_processed_count:-0} apps skipped as duplicate name in scanned dirs)"
-    log_info "${COLOR_DIM}   (${skipped_no_cask_count:-0} apps skipped as no verified cask found in API data)${COLOR_RESET}"
+    # Ensure counts are printed even if 0, for clarity in verbose mode, add extra indent
+    log_info "${COLOR_DIM}     - Skipped (Managed):   ${skipped_managed_count:-0}"
+    log_info "${COLOR_DIM}     - Skipped (Duplicate): ${skipped_processed_count:-0}"
+    log_info "${COLOR_DIM}     - Skipped (No Cask):   ${skipped_no_cask_count:-0}${COLOR_RESET}"
 fi
 
 # --- Interactive Installation ---
