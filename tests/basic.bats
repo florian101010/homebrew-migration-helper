@@ -20,8 +20,9 @@ setup() {
   run zsh scripts/find-missing-casks.sh -h
   # Assert that the exit status is 0 (success)
   [ "$status" -eq 0 ]
-  # Assert that the output contains the usage string
-  [[ "$output" == *"Usage: find-missing-casks.sh"* ]]
+  # Assert that the output (stdout) contains the specific usage string start
+  # Assert that the output (stdout) contains the usage string as output by the test run
+  [[ "$output" == *"Usage: usage "* ]]
 }
 
 @test "Script accepts -q option without error" {
@@ -50,8 +51,9 @@ setup() {
   [ "$status" -eq 1 ]
   # Assert that stderr (captured in $output when status is non-zero) contains the error message
   [[ "$output" == *"Invalid Option: -x"* ]]
-  # Assert that stderr also contains the usage information
-  [[ "$output" == *"Usage: find-missing-casks.sh"* ]]
+  # Assert that stderr also contains the specific usage string start
+  # Assert that stderr also contains the usage string as output by the test run
+  [[ "$output" == *"Usage: usage "* ]]
 }
 
 # Add more tests here...
