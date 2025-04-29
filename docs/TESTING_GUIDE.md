@@ -18,7 +18,7 @@ To test the script's logic in isolation without relying on external dependencies
 
 The `setup()` function creates a temporary directory structure within `BATS_TMPDIR` for each test run. Key components include:
 
-*   **`$MOCK_BIN_DIR`**: Contains mock shell scripts that mimic the behavior of required external commands (`brew`, `defaults`, `jq`, `curl`). This directory is temporarily added to the `PATH` during the test run, so the main script calls these mocks instead of the real commands.
+*   **`$MOCK_BIN_DIR`**: Contains mock shell scripts that mimic the behavior of required external commands (`brew`, `defaults`, `jq`, `curl`). This directory is temporarily added to the `PATH` during the test run. Note that the mock `jq` is explicitly invoked via the `HMH_MOCK_JQ_PATH` environment variable (set in `setup()`) to ensure it overrides the system `jq`.
 *   **`$MOCK_DATA_DIR`**: Stores mock data files used by the mock commands.
     *   `mock_api_cache.json`: Simulates the JSON data downloaded from the Homebrew Cask API.
     *   `mock_brew_info.json`: Simulates the JSON output of `brew info --json=v2 --installed`.
