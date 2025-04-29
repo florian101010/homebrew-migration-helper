@@ -122,6 +122,11 @@ For more in-depth information, please refer to the documents in the `docs` folde
 *   **[Script Details (`SCRIPT_DETAILS.md`)](./docs/SCRIPT_DETAILS.md):** A deep dive into how the script works, including API handling, caching, path resolution, and variable explanations.
 *   **[Troubleshooting Guide (`TROUBLESHOOTING.md`)](./docs/TROUBLESHOOTING.md):** Solutions for common errors and issues you might encounter.
 
+## 📜 Version History
+
+See the [CHANGELOG.md](./CHANGELOG.md) for a detailed history of changes.
+Release notes for specific versions can be found in [RELEASE_NOTES.md](./RELEASE_NOTES.md) or on the [GitHub Releases](https://github.com/florian101010/homebrew-migration-helper/releases) page.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
