@@ -22,6 +22,16 @@ setup() {
   [[ "$output" == *"Usage: find-missing-casks.sh"* ]]
 }
 
+@test "Script accepts -q option without error" {
+  # Run the script with zsh and the -q flag
+  # Note: This test assumes brew/curl/jq exist, as the script checks them early.
+  # A more robust test would mock these dependencies.
+  run zsh ../scripts/find-missing-casks.sh -q
+  # Assert that the exit status is 0 (success)
+  # We don't assert output here as it depends heavily on the environment/cache/installed apps
+  [ "$status" -eq 0 ]
+}
+
 # Add more tests here...
 # Example: Test default run (might require mocking brew/curl/jq)
 # @test "Script runs with default options without error (requires mocks)" {
