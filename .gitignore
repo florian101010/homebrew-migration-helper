@@ -30,3 +30,6 @@ Temporary Items
 *.log
 *.out
 *.err
+
+# Test artifacts
+/tests/find-missing-casks-tests.*
