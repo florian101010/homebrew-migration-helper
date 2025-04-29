@@ -14,9 +14,8 @@ Thank you for considering contributing to the Homebrew Migration Helper!
     ```
 4.  **Make your changes:** Implement your fix or feature.
 5.  **Test your changes:**
-    *   Run `shellcheck scripts/find-missing-casks.sh` to check for script errors.
     *   Run the automated tests: `bats tests` (You might need to install bats-core: `brew install bats-core`).
-    *   Add new tests for your changes if applicable.
+    *   Add new tests for your changes if applicable. Ensure all tests pass.
 6.  **Commit your changes:** Commit your changes using a descriptive commit message. Follow conventional commit message formats if possible (e.g., `feat: Add -o option for output file`).
     ```bash
     git commit -m "feat: Describe your feature or fix"
